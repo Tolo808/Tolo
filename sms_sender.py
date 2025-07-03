@@ -115,7 +115,8 @@ def remove_keyboard(chat_id, text="Saved. / ተመዝግቧል."):
 
 
 def save_delivery(data):
-    deliveries_collection.insert_one(data)
+    result = deliveries_collection.insert_one(data)
+    print(f"✅ Saved delivery with ID: {result.inserted_id}")
 
 def send_sms(phone_number, message):
     session = requests.Session()
