@@ -5,8 +5,13 @@ import os
 from datetime import datetime
 from geopy.geocoders import Nominatim   
 from dotenv import load_dotenv
+from pymongo import MongoClient
 
 load_dotenv()
+
+client = MongoClient(os.getenv("MONGO_URI"))
+db = client["tolo_delivery"]
+deliveries_collection = db["deliveries"]
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 username = os.getenv("AT_USERNAME")
@@ -110,18 +115,8 @@ def remove_keyboard(chat_id, text="Saved. / ተመዝግቧል."):
 
 
 def save_delivery(data):
-    try:
-        with open(JSON_FILE, 'r') as f:
-            content = f.read().strip()
-            deliveries = json.loads(content) if content else []
-    except Exception:
-        deliveries = []
+    deliveries_collection.insert_one(data)
 
-    deliveries.append(data)
-    with open(JSON_FILE, 'w') as f:
-        json.dump(deliveries, f, indent=2)
-
-import requests
 def send_sms(phone_number, message):
     session = requests.Session()
     # base url
