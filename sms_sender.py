@@ -115,8 +115,16 @@ def remove_keyboard(chat_id, text="Saved. / ተመዝግቧል."):
 
 
 def save_delivery(data):
-    result = deliveries_collection.insert_one(data)
-    print(f"✅ Saved delivery with ID: {result.inserted_id}")
+    try:
+        with open(JSON_FILE, 'r') as f:
+            content = f.read().strip()
+            deliveries = json.loads(content) if content else []
+    except Exception:
+        deliveries = []
+
+    deliveries.append(data)
+    with open(JSON_FILE, 'w') as f:
+        json.dump(deliveries, f, indent=2)
 
 def send_sms(phone_number, message):
     session = requests.Session()
