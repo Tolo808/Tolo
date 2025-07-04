@@ -8,10 +8,10 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 
 load_dotenv()
-
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["tolo_delivery"]
 deliveries_collection = db["deliveries"]
+
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 username = os.getenv("AT_USERNAME")
@@ -37,6 +37,12 @@ for file in [JSON_FILE, STATE_FILE]:
     if not os.path.exists(file):
         with open(file, 'w') as f:
             json.dump({}, f) if file == STATE_FILE else json.dump([], f)
+
+FEEDBACK_FILE = 'feedback.json'
+if not os.path.exists(FEEDBACK_FILE):
+    with open(FEEDBACK_FILE, 'w') as f:
+        json.dump([], f)
+
 
 Commands = [
     {"command": "/start", "description": "Start the bot / ቦትን ጀምር"},
@@ -115,17 +121,15 @@ def remove_keyboard(chat_id, text="Saved. / ተመዝግቧል."):
 
 
 def save_delivery(data):
+   
     try:
-        with open(JSON_FILE, 'r') as f:
-            content = f.read().strip()
-            deliveries = json.loads(content) if content else []
-    except Exception:
-        deliveries = []
+        deliveries_collection.insert_one(data)
+        print("✅ Delivery saved to MongoDB.")
+    except Exception as e:
+        print("❌ Failed to save to MongoDB:", e)
 
-    deliveries.append(data)
-    with open(JSON_FILE, 'w') as f:
-        json.dump(deliveries, f, indent=2)
 
+import requests
 def send_sms(phone_number, message):
     session = requests.Session()
     # base url
@@ -137,7 +141,7 @@ def send_sms(phone_number, message):
             'Content-Type': 'application/json'}
         # request body
     body = {'callback': 'YOUR_CALLBACK',
-                'from':'e80ad9d8-adf3-463f-80f4-7c4b39f7f164',
+                'from':AFRO_SENDER_ID,
                 'sender':'AfroMessage',
                 'to': phone_number,
                 'message': message}
@@ -156,6 +160,20 @@ def send_sms(phone_number, message):
     else:
             # anything other than 200 goes here.
         print ('http error ... code: %d , msg: %s ' % (result.status_code, result.content))
+
+def save_feedback(data):
+    try:
+        with open(FEEDBACK_FILE, 'r') as f:
+            content = f.read().strip()
+            feedbacks = json.loads(content) if content else []
+    except Exception:
+        feedbacks = []
+
+    feedbacks.append(data)
+    with open(FEEDBACK_FILE, 'w') as f:
+        json.dump(feedbacks, f, indent=2)
+
+
 def load_states():
     with open(STATE_FILE, 'r') as f:
         return json.load(f)
@@ -197,6 +215,27 @@ def main():
                 continue
 
             text = message["text"].strip()
+            if text.lower() == "/feedback":
+                states[chat_id] = {"step": "feedback"}  # special mode
+                save_states(states)
+                send_message(chat_id, "📝 Please type your feedback below. / እባክዎ እቅድዎን እዚህ ያስገቡ:")
+                continue
+
+            # If user is in feedback mode
+            if chat_id in states and states[chat_id].get("step") == "feedback":
+                user = message["from"]
+                full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+                feedback_data = {
+                    "user_name": full_name,
+                    "chat_id": chat_id,
+                    "feedback": text,
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                save_feedback(feedback_data)
+                send_message(chat_id, "✅ Thank you for your feedback! / እናመሰግናለን ለእቅድዎ!")
+                del states[chat_id]
+                save_states(states)
+                continue
 
             if text.lower() == "/start":
                 states[chat_id] = {"step": 0, "data": {}}
@@ -260,12 +299,9 @@ def main():
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
-                    send_message(chat_id, "✅ Delivery saved. Thank you! / እቅድዎ በስኬት ተመዝግቧል። ")
-                    data = state["data"]
-                    item = data.get("item_description", "")
-                    send_sms(state["data"]["receiver_phone"], f"Dear Customer Item Type: {item} is currently being deliverd. Your delivery has been confirmed! Thank you for using Tolo Delivery.")
-
-                    response = requests.post(url, json={"commands": Commands})
+                    send_message(chat_id, "✅ Your delivery has been confirmed! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n የእርስዎ ማድረስ ተረጋግጧል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናስታውቃችኋለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን. ")
+                
+                response = requests.post(url, json={"commands": Commands})
                     
             else:
                 send_message(chat_id, "Type /start to begin. / እባክዎ /start ይጻፉ ለመጀመር።")
