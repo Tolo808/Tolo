@@ -311,7 +311,7 @@ def main():
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
-                    send_message(chat_id, "✅ Your delivery has been confirmed! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n የእርስዎ ማድረስ ተረጋግጧል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናስታውቃችኋለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን. ")
+                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝህ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናስታውቃችኋለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን.")
                 
                 response = requests.post(url, json={"commands": Commands})
                     
