@@ -110,10 +110,10 @@ def get_address_from_coordinates(lat, lon):
     except Exception as e:
         print("Geocoding failed:", e)
         return {}
-# Add this helper function to remove keyboards
-def remove_keyboard(chat_id, text="Saved. / ተመዝግቧል."):
-    keyboard = {"remove_keyboard": True}
-    send_message(chat_id, text, reply_markup=keyboard)
+
+
+def remove_keyboard(chat_id):
+    pass 
 
 
 def save_delivery(data):
