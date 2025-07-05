@@ -11,7 +11,7 @@ load_dotenv()
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["tolo_delivery"]
 deliveries_collection = db["deliveries"]
-
+feedback_collection = db["feedback"]
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 username = os.getenv("AT_USERNAME")
@@ -38,10 +38,6 @@ for file in [JSON_FILE, STATE_FILE]:
         with open(file, 'w') as f:
             json.dump({}, f) if file == STATE_FILE else json.dump([], f)
 
-FEEDBACK_FILE = 'feedback.json'
-if not os.path.exists(FEEDBACK_FILE):
-    with open(FEEDBACK_FILE, 'w') as f:
-        json.dump([], f)
 
 
 Commands = [
@@ -161,17 +157,14 @@ def send_sms(phone_number, message):
             # anything other than 200 goes here.
         print ('http error ... code: %d , msg: %s ' % (result.status_code, result.content))
 
+
 def save_feedback(data):
     try:
-        with open(FEEDBACK_FILE, 'r') as f:
-            content = f.read().strip()
-            feedbacks = json.loads(content) if content else []
-    except Exception:
-        feedbacks = []
+        feedback_collection.insert_one(data)
+        print("✅ Feedback saved to MongoDB.")
+    except Exception as e:
+        print("❌ Failed to save feedback:", e)
 
-    feedbacks.append(data)
-    with open(FEEDBACK_FILE, 'w') as f:
-        json.dump(feedbacks, f, indent=2)
 
 
 def load_states():
