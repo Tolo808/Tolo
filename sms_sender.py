@@ -56,7 +56,7 @@ Data_Message = [
     {"field": "receiver_phone", "label": "Enter receiver's phone number: / የተቀባዩን ስልክ ቁጥር ያስገቡ:"},
     {"field": "location_marker", "label": "📍 Please share your location: / እባክዎ አካባቢዎን ያካፍሉ:"},
     {"field": "payment_from_sender_or_receiver", "label": "Who will pay for the delivery? / ክፍያው በማን ነው?"},
-    {"field": "item_description", "label": "Enter item description: / የእቃውን መግለጫ ያስገቡ:"},
+    {"field": "item_description", "label": "Enter item description: / የእቃውን አይነት ያስገቡ:"},
     {"field": "Quantity", "label": "Enter quantity: / ብዛትን ያስገቡ:"},
 ]
 
@@ -311,7 +311,7 @@ def main():
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
-                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝህ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናስታውቃችኋለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን.")
+                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናስታውቆታለነ። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
                 
                 response = requests.post(url, json={"commands": Commands})
                     
