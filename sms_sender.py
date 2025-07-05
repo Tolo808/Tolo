@@ -236,7 +236,26 @@ def main():
                 del states[chat_id]
                 save_states(states)
                 continue
+            elif text.lower() == "/about":
+                send_message(chat_id,
+                    "📦 *About Tolo Delivery*\n\n"
+                    "Tolo Delivery is a fast and reliable delivery service helping you send packages across Addis Ababa.\n"
+                    "We are committed to making your delivery experience quick and seamless.\n\n"
+                    "ቶሎ ዴሊቨሪ በአዲስ አበባ ውስጥ ፈጣንና ታማኝ የማድረሻ አገልግሎት ነው። "
+                    "ምቹና ቀላል የማድረሻ ተሞክሮ ለመስጠት እንግደማለን።"
+                )
 
+            elif text.lower() == "/contact":
+                send_message(chat_id,
+                    "📞 *Contact Us*\n\n"
+                    "Phone: +251912345678\n"
+                    "Telegram: @ToloSupport\n"
+                    "Email: support@tolodelivery.com\n\n"
+                    "ለአገልግሎታችን ከሆነ ጥያቄ ወይም መረጃ ለማግኘት:\n"
+                    "ስልክ: +251912345678\n"
+                    "ቴሌግራም: @ToloSupport\n"
+                    "ኢሜይል: support@tolodelivery.com"
+                )
             if text.lower() == "/start":
                 states[chat_id] = {"step": 0, "data": {}}
                 save_states(states)
