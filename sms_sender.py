@@ -113,7 +113,8 @@ def get_address_from_coordinates(lat, lon):
 
 
 def remove_keyboard(chat_id):
-    pass 
+    keyboard = {"remove_keyboard": True}
+    send_message(chat_id, "✅ ", reply_markup=keyboard)
 
 
 def save_delivery(data):
@@ -125,7 +126,6 @@ def save_delivery(data):
         print("❌ Failed to save to MongoDB:", e)
 
 
-import requests
 def send_sms(phone_number, message):
     session = requests.Session()
     # base url
@@ -234,20 +234,20 @@ def main():
                     "📦 *About Tolo Delivery*\n\n"
                     "Tolo Delivery is a fast and reliable delivery service helping you send packages across Addis Ababa.\n"
                     "We are committed to making your delivery experience quick and seamless.\n\n"
-                    "ቶሎ ዴሊቨሪ በአዲስ አበባ ውስጥ ፈጣንና ታማኝ የማድረሻ አገልግሎት ነው። "
-                    "ምቹና ቀላል የማድረሻ ተሞክሮ ለመስጠት እንግደማለን።"
+                    "ቶሎ ዴሊቨሪ በአዲስ አበባ ውስጥ ጥቅሎችን ለመላክ የሚረዳ ፈጣን እና አስተማማኝ የአቅርቦት አገልግሎት ነው. \n"
+                    "የአቅርቦት ተሞክሮዎ ፈጣን እና እንከን የለሽ ለማድረግ ተግተን እንሰራለን"
                 )
 
             elif text.lower() == "/contact":
                 send_message(chat_id,
                     "📞 *Contact Us*\n\n"
-                    "Phone: +251912345678\n"
-                    "Telegram: @ToloSupport\n"
-                    "Email: support@tolodelivery.com\n\n"
+                    "Phone: +251921296933\n"
+                    "     : +251900041277\n"
+                    "Email: info@tolo9558.com\n"
                     "ለአገልግሎታችን ከሆነ ጥያቄ ወይም መረጃ ለማግኘት:\n"
-                    "ስልክ: +251912345678\n"
-                    "ቴሌግራም: @ToloSupport\n"
-                    "ኢሜይል: support@tolodelivery.com"
+                    "ስልክ: +251921296933\n"
+                    "     +251900041277\n"
+                    "ኢሜይል: info@tolo9558.com"
                 )
             if text.lower() == "/start":
                 states[chat_id] = {"step": 0, "data": {}}
@@ -311,7 +311,7 @@ def main():
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
-                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናስታውቆታለነ። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
+                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
                 
                 response = requests.post(url, json={"commands": Commands})
                     
