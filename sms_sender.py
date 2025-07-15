@@ -114,7 +114,8 @@ def get_address_from_coordinates(lat, lon):
 
 def remove_keyboard(chat_id):
     keyboard = {"remove_keyboard": True}
-    send_message(chat_id, "✅ ", reply_markup=keyboard)
+    send_message(chat_id, "", reply_markup=keyboard)  
+
 
 
 def save_delivery(data):
