@@ -200,7 +200,7 @@ def main():
                 states[chat_id]["data"].update(get_address_from_coordinates(lat, lon))
                 states[chat_id]["step"] += 1
                 save_states(states)
-                remove_keyboard(chat_id)
+            
                 request_payment_option(chat_id)
                 continue  # ✅ No update to last_update_id here
 
@@ -303,8 +303,8 @@ def main():
                         request_location(chat_id)
                     elif next_field_info["field"] == "payment_from_sender_or_receiver":
                         request_payment_option(chat_id)
-                    else:
                         remove_keyboard(chat_id)
+                    else:
                         send_message(chat_id, next_field_info["label"])
                 else:
                     state["data"]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
