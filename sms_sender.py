@@ -282,10 +282,13 @@ def main():
                         continue
 
                 valid_inputs = ["Sender / ላኪ", "Receiver / ተቀባይ"]
-                if field == "payment_from_sender_or_receiver" and text not in valid_inputs:
-                    request_payment_option(chat_id)
-                    #send_message(chat_id, "⚠️ Please choose from the buttons below.")
-                    continue
+                if field == "payment_from_sender_or_receiver":
+                    if text not in valid_inputs:
+                        request_payment_option(chat_id)
+                        continue
+                    else:
+                        remove_keyboard(chat_id)  # ✅ User selected valid input → now remove keyboard
+
              
                 
                 state["data"][field] = text
@@ -304,7 +307,7 @@ def main():
                         request_location(chat_id)
                     elif next_field_info["field"] == "payment_from_sender_or_receiver":
                         request_payment_option(chat_id)
-                        remove_keyboard(chat_id)
+                      
                     else:
                         send_message(chat_id, next_field_info["label"])
                 else:
