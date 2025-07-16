@@ -6,6 +6,7 @@ from datetime import datetime
 from geopy.geocoders import Nominatim   
 from dotenv import load_dotenv
 from pymongo import MongoClient
+from math import radians, cos, sin, asin, sqrt
 
 load_dotenv()
 client = MongoClient(os.getenv("MONGO_URI"))
@@ -111,6 +112,24 @@ def get_address_from_coordinates(lat, lon):
         print("Geocoding failed:", e)
         return {}
 
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    # Radius of Earth in kilometers. Use 3956 for miles
+    R = 6371.0
+    # Convert coordinates from degrees to radians
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a))
+    return R * c  # in kilometers
+
+def calculate_delivery_price(distance_km):
+    base_price = 30   # base price in ETB
+    per_km_rate = 10  # ETB per km
+    return round(base_price + (per_km_rate * distance_km), 2)
 
 def remove_keyboard(chat_id):
     keyboard = {"remove_keyboard": True}
@@ -312,9 +331,38 @@ def main():
                         send_message(chat_id, next_field_info["label"])
                 else:
                     state["data"]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                    pickup_address = state["data"].get("pickup")
+                    dropoff_address = state["data"].get("dropoff")
+
+                    # Geocode pickup and dropoff to get coordinates
+                    try:
+                        pickup_location = geolocator.geocode(pickup_address)
+                        dropoff_location = geolocator.geocode(dropoff_address)
+
+                        if pickup_location and dropoff_location:
+                            distance_km = haversine(
+                                pickup_location.latitude, pickup_location.longitude,
+                                dropoff_location.latitude, dropoff_location.longitude
+                            )
+                            price = calculate_delivery_price(distance_km)
+                            state["data"]["distance_km"] = round(distance_km, 2)
+                            state["data"]["delivery_price"] = price
+                        else:
+                            state["data"]["delivery_price"] = "N/A"
+                            state["data"]["distance_km"] = "N/A"
+                    except Exception as e:
+                        print("Distance calc failed:", e)
+                        state["data"]["delivery_price"] = "N/A"
+                        state["data"]["distance_km"] = "N/A"
+
+
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
+                    if isinstance(state["data"].get("delivery_price"), (int, float)):
+                        send_message(chat_id, f"💰 Estimated Delivery Price: {state['data']['delivery_price']} ETB")
+
                     send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
                 
                 response = requests.post(url, json={"commands": Commands})
