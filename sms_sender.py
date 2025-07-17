@@ -282,6 +282,26 @@ def main():
                     send_message(chat_id, "❌ Operation cancelled. / እቅዱ ተሰርዟል።")
                 else:
                     send_message(chat_id, "No operation to cancel. / ምንም እቅድ የለም።")
+            
+            
+                if chat_id in states and states[chat_id].get("step") == "confirm_summary":
+                    if text == "✅ Confirm":
+                        state = states[chat_id]
+                        save_delivery(state["data"])
+                        remove_keyboard(chat_id)
+                        if isinstance(state["data"].get("delivery_price"), (int, float)):
+                            send_message(chat_id, f"💰 Estimated Delivery Price: {state['data']['delivery_price']} ETB")
+                        send_message(chat_id, "✅ Your order has been accepted! We Will Notify via SMS When Driver Is Assigned. Thank you for using Tolo Delivery.\nትዕዛዝዎ ተቀባይነት አግኝቷል። ሾፌሩ ሲመደብ በSMS እናሳውቆታለን። ቶሎ ዴሊቨሪን በመጠቀምዎ እናመሰግናለን።")
+                        del states[chat_id]
+                        save_states(states)
+                    elif text == "❌ Cancel":
+                        remove_keyboard(chat_id)
+                        send_message(chat_id, "❌ Order cancelled. / ትዕዛዙ ተሰርዟል።")
+                        del states[chat_id]
+                        save_states(states)
+                    else:
+                        send_message(chat_id, "⚠️ Please choose ✅ Confirm or ❌ Cancel.")
+                    continue
 
             elif chat_id in states:
                 state = states[chat_id]
@@ -357,14 +377,33 @@ def main():
                         state["data"]["distance_km"] = "N/A"
 
 
-                    save_delivery(state["data"])
-                    del states[chat_id]
-                    save_states(states)
-                    if isinstance(state["data"].get("delivery_price"), (int, float)):
-                        send_message(chat_id, f"💰 Estimated Delivery Price: {state['data']['delivery_price']} ETB")
+                                        # Show summary & ask for confirmation
+                    pickup = state["data"].get("pickup")
+                    dropoff = state["data"].get("dropoff")
+                    quantity = state["data"].get("Quantity")
+                    payer = state["data"].get("payment_from_sender_or_receiver")
+                    price = state["data"].get("delivery_price", "N/A")
 
-                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
-                
+                    summary = (
+                        f"📦 *Order Summary:*\n"
+                        f"Pickup: {pickup}\n"
+                        f"Dropoff: {dropoff}\n"
+                        f"Quantity: {quantity}\n"
+                        f"Payment By: {payer}\n"
+                        f"Estimated Price: {price} ETB\n\n"
+                        "Do you want to confirm this order?"
+                    )
+
+                    keyboard = {
+                        "keyboard": [[{"text": "✅ Confirm"}, {"text": "❌ Cancel"}]],
+                        "resize_keyboard": True,
+                        "one_time_keyboard": True
+                    }
+
+                    state["step"] = "confirm_summary"
+                    save_states(states)
+                    send_message(chat_id, summary, reply_markup=keyboard)
+
                 response = requests.post(url, json={"commands": Commands})
                     
             else:
