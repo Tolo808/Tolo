@@ -6,6 +6,8 @@ from datetime import datetime
 from geopy.geocoders import Nominatim   
 from dotenv import load_dotenv
 from pymongo import MongoClient
+from geopy.distance import geodesic
+
 
 load_dotenv()
 client = MongoClient(os.getenv("MONGO_URI"))
@@ -116,6 +118,26 @@ def remove_keyboard(chat_id):
     keyboard = {"remove_keyboard": True}
     send_message(chat_id, "", reply_markup=keyboard)  
 
+
+def calculate_delivery_price(pickup_coords, dropoff_coords):
+    try:
+        distance_km = geodesic(pickup_coords, dropoff_coords).km
+        distance_km = round(distance_km, 2)
+
+        if 1 <= distance_km <= 5.9:
+            price = 100
+        elif 6 <= distance_km <= 10.9:
+            price = 200
+        elif 11 <= distance_km <= 17:
+            price = 300
+        else:
+            price = None  # Or set a default or maximum price
+
+        return distance_km, price
+
+    except Exception as e:
+        print("❌ Failed to calculate distance/price:", e)
+        return None, None
 
 
 def save_delivery(data):
@@ -311,8 +333,24 @@ def main():
                     else:
                         send_message(chat_id, next_field_info["label"])
                 else:
-                    state["data"]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    save_delivery(state["data"])
+                    data = state["data"]
+                    pickup_coords = (data.get("latitude"), data.get("longitude"))
+                    dropoff_location = geolocator.geocode(data["dropoff"])
+                    if dropoff_location:
+                        dropoff_coords = (dropoff_location.latitude, dropoff_location.longitude)
+                        distance_km, price = calculate_delivery_price(pickup_coords, dropoff_coords)
+                        
+                        if price:
+                            data["distance_km"] = distance_km
+                            data["price_birr"] = price
+                            data["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            save_delivery(data)
+                            send_message(chat_id, f"✅ Your order has been accepted! Distance: {distance_km} km\n💰 Delivery price: {price} birr\nWe will notify you when a driver is assigned.\nትዕዛዝዎ ተቀባይነት አግኝቷል። ክፍያ: {price} ብር")
+                        else:
+                            send_message(chat_id, "⚠️ Distance is out of our delivery range or could not be calculated.")
+                    else:
+                        send_message(chat_id, "❌ Failed to locate drop-off address. Please try again.")
+
                     del states[chat_id]
                     save_states(states)
                     send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
