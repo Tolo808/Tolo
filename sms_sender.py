@@ -115,7 +115,7 @@ def get_address_from_coordinates(lat, lon):
 
 def remove_keyboard(chat_id):
     keyboard = {"remove_keyboard": True}
-    send_message(chat_id, "✅", reply_markup=keyboard)  
+    send_message(chat_id, "✅Confirmed ", reply_markup=keyboard)  
 
 
 
@@ -327,7 +327,7 @@ def main():
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
-                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
+                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በSMS አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
                 
                 response = requests.post(url, json={"commands": Commands})
                     
