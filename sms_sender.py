@@ -6,7 +6,6 @@ from datetime import datetime
 from geopy.geocoders import Nominatim   
 from dotenv import load_dotenv
 from pymongo import MongoClient
-from math import radians, cos, sin, asin, sqrt
 
 load_dotenv()
 client = MongoClient(os.getenv("MONGO_URI"))
@@ -47,7 +46,6 @@ Commands = [
     {"command": "/contact", "description": "Contact us / እኛን ያግኙ"},
     {"command": "/cancel", "description": "Cancel current operation / አሁን ያቋርጡ"},
     {"command": "/feedback", "description": "Send feedback / እቅድ ያስተውሉ"},
-    {"command": "/price", "description": "Delivery price info / የክፍያ መረጃ"}
 ]
 
 # Fields expected in the delivery form
@@ -114,19 +112,10 @@ def get_address_from_coordinates(lat, lon):
         return {}
 
 
-
 def remove_keyboard(chat_id):
     keyboard = {"remove_keyboard": True}
     send_message(chat_id, "", reply_markup=keyboard)  
 
-def calculate_distance_km(lat1, lon1, lat2, lon2):
-    # Haversine formula
-    R = 6371  # Radius of earth in km
-    dlat = radians(lat2 - lat1)
-    dlon = radians(lon2 - lon1)
-    a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a))
-    return round(R * c, 2)
 
 
 def save_delivery(data):
@@ -261,16 +250,6 @@ def main():
                     "     +251900041277\n"
                     "ኢሜይል: info@tolo9558.com"
                 )
-            elif text.lower() == "/price":
-                send_message(chat_id,
-                    "💰 *Delivery Price Guide*\n\n"
-                    " 0 – 5.9 km → 100 ETB\n"
-                    " 6 – 10.9 km → 200 ETB\n"
-                    " 11 – 17 km → 300 ETB\n"
-                    " Beyond 17 km → 300 ETB \n\n"
-                )
-                continue
-
             if text.lower() == "/start":
                 states[chat_id] = {"step": 0, "data": {}}
                 save_states(states)
@@ -332,27 +311,8 @@ def main():
                     else:
                         send_message(chat_id, next_field_info["label"])
                 else:
-                    data = state["data"]
-                    data["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-                    if "latitude" in data and "longitude" in data:
-                        # Default dispatch center (e.g., Bole, Addis Ababa)
-                        dispatch_lat, dispatch_lon = 8.9806, 38.7578
-                        distance = calculate_distance_km(dispatch_lat, dispatch_lon, data["latitude"], data["longitude"])
-                        data["distance_km"] = distance
-
-                        # Price Logic
-                        if distance <= 5.9:
-                            data["price"] = 100
-                        elif distance <= 10.9:
-                            data["price"] = 200
-                        elif distance <= 17:
-                            data["price"] = 300
-                        else:
-                            data["price"] = 300  # Same for beyond 17 km
-
-                    save_delivery(data)
-                    send_message(chat_id, f"📏 Distance: {data['distance_km']} km\n💰 Delivery Price: {data['price']} ETB")
+                    state["data"]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
                     send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
