@@ -352,7 +352,7 @@ def main():
                             data["price"] = 300  # Same for beyond 17 km
 
                     save_delivery(data)
-                    send_message(chat_id, f"📏 Distance: {distance} km\n💰 Delivery Price: {data['price']} ETB")
+                    send_message(chat_id, f"📏 Distance: {data['distance_km']} km\n💰 Delivery Price: {data['price']} ETB")
                     del states[chat_id]
                     save_states(states)
                     send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በ ኤስ ኤም ኤስ አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
