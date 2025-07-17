@@ -127,9 +127,19 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * c  # in kilometers
 
 def calculate_delivery_price(distance_km):
-    base_price = 30   # base price in ETB
-    per_km_rate = 10  # ETB per km
-    return round(base_price + (per_km_rate * distance_km), 2)
+    if distance_km <= 5.9:
+        return 100
+    elif 6 <= distance_km <= 10.9:
+        return 200
+    elif 11 <= distance_km <= 17:
+        return 300
+    else:
+        # For distances beyond 17 km, you can decide to charge extra or set a max price
+        # For example, charge 300 + 20 ETB per km beyond 17
+        extra_distance = distance_km - 17
+        extra_charge = 20 * extra_distance
+        return round(300 + extra_charge, 2)
+
 
 def remove_keyboard(chat_id):
     keyboard = {"remove_keyboard": True}
@@ -284,24 +294,7 @@ def main():
                     send_message(chat_id, "No operation to cancel. / ምንም እቅድ የለም።")
             
             
-                if chat_id in states and states[chat_id].get("step") == "confirm_summary":
-                    if text == "✅ Confirm":
-                        state = states[chat_id]
-                        save_delivery(state["data"])
-                        remove_keyboard(chat_id)
-                        if isinstance(state["data"].get("delivery_price"), (int, float)):
-                            send_message(chat_id, f"💰 Estimated Delivery Price: {state['data']['delivery_price']} ETB")
-                        send_message(chat_id, "✅ Your order has been accepted! We Will Notify via SMS When Driver Is Assigned. Thank you for using Tolo Delivery.\nትዕዛዝዎ ተቀባይነት አግኝቷል። ሾፌሩ ሲመደብ በSMS እናሳውቆታለን። ቶሎ ዴሊቨሪን በመጠቀምዎ እናመሰግናለን።")
-                        del states[chat_id]
-                        save_states(states)
-                    elif text == "❌ Cancel":
-                        remove_keyboard(chat_id)
-                        send_message(chat_id, "❌ Order cancelled. / ትዕዛዙ ተሰርዟል።")
-                        del states[chat_id]
-                        save_states(states)
-                    else:
-                        send_message(chat_id, "⚠️ Please choose ✅ Confirm or ❌ Cancel.")
-                    continue
+                
 
             elif chat_id in states:
                 state = states[chat_id]
@@ -403,6 +396,25 @@ def main():
                     state["step"] = "confirm_summary"
                     save_states(states)
                     send_message(chat_id, summary, reply_markup=keyboard)
+
+                    if chat_id in states and states[chat_id].get("step") == "confirm_summary":
+                        if text == "✅ Confirm":
+                            state = states[chat_id]
+                            save_delivery(state["data"])
+                            remove_keyboard(chat_id)
+                            if isinstance(state["data"].get("delivery_price"), (int, float)):
+                                send_message(chat_id, f"💰 Estimated Delivery Price: {state['data']['delivery_price']} ETB")
+                            send_message(chat_id, "✅ Your order has been accepted! We Will Notify via SMS When Driver Is Assigned. Thank you for using Tolo Delivery.\nትዕዛዝዎ ተቀባይነት አግኝቷል። ሾፌሩ ሲመደብ በSMS እናሳውቆታለን። ቶሎ ዴሊቨሪን በመጠቀምዎ እናመሰግናለን።")
+                            del states[chat_id]
+                            save_states(states)
+                        elif text == "❌ Cancel":
+                            remove_keyboard(chat_id)
+                            send_message(chat_id, "❌ Order cancelled. / ትዕዛዙ ተሰርዟል።")
+                            del states[chat_id]
+                            save_states(states)
+                        else:
+                            send_message(chat_id, "⚠️ Please choose ✅ Confirm or ❌ Cancel.")
+                        continue
 
                 response = requests.post(url, json={"commands": Commands})
                     
