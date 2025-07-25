@@ -324,7 +324,7 @@ def main():
                         send_message(chat_id, next_field_info["label"])
                 else:
                     state["data"]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                     state["data"]["source"] = "bot" 
+                    state["data"]["source"] = "bot" 
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
