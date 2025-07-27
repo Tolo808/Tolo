@@ -24,6 +24,22 @@ API_URL = f'https://api.telegram.org/bot{BOT_TOKEN}'
 JSON_FILE = 'messages.json'
 STATE_FILE = 'user_states.json'
 
+offset_collection = db["offset_tracking"]
+
+def load_offset():
+    record = offset_collection.find_one({"_id": "telegram_offset"})
+    if record:
+        return record.get("last_update_id")
+    return None
+
+def save_offset(offset):
+    offset_collection.update_one(
+        {"_id": "telegram_offset"},
+        {"$set": {"last_update_id": offset}},
+        upsert=True
+    )
+
+
 url = f"https://api.telegram.org/bot{BOT_TOKEN}/setMyCommands"
 
 
@@ -180,7 +196,7 @@ def save_states(states):
 
 
 def main():
-    last_update_id = None
+    last_update_id = load_offset()
     print("🚀 Bot is running...")
 
     while True:
