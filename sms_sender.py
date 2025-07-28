@@ -26,7 +26,7 @@ client = MongoClient(os.getenv("MONGO_URI"))
 db = client["tolo_delivery"]
 deliveries_collection = db["deliveries"]
 feedback_collection = db["feedback"]
-
+free_delivery_collection = db["free_delivery"]
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 username = os.getenv("AT_USERNAME")
 api_key = os.getenv("AT_API_KEY")
@@ -80,6 +80,8 @@ Commands = [
     {"command": "/feedback", "description": "Send feedback / እቅድ ያስተውሉ"},
     {"command": "/price", "description": "Get price list / ዋጋ "},
     {"command": "/level", "description": "Check your level / ደረጃዎን ያሳዩ"},
+    {"command": "/mydeliveries", "description": "Your recent deliveries / ያስተላለፉት ትእዛዞች"},
+
 
 ]
 
@@ -222,6 +224,13 @@ def get_user_level(delivery_count):
         return 1
     return (delivery_count // 10) + 1
 
+def has_used_free_delivery(chat_id, level):
+    return free_delivery_collection.find_one({"chat_id": chat_id, "level": level}) is not None
+
+def mark_free_delivery_used(chat_id, level):
+    free_delivery_collection.insert_one({"chat_id": chat_id, "level": level, "used": True})
+
+
 
 def main():
     last_update_id = load_offset()
@@ -344,17 +353,40 @@ def main():
                 next_target = next_level * 10
                 to_next = next_target - delivery_count
 
-                perks = f"🎁 You qualify for {level} free delivery{'ies' if level > 1 else ''}!"
+                used = has_used_free_delivery(chat_id, level)
+                free_text = "✅ Used" if used else "🎁 Available"
+
                 msg = (
                     f"🏅 *Your Level Info*\n\n"
                     f"Level: {level}\n"
                     f"Deliveries made: {delivery_count}\n"
-                    f"{perks}\n\n"
+                    f"Free delivery at this level: {free_text}\n\n"
                     f"📈 {to_next} more deliveries to reach Level {next_level}.\n"
                     f"Keep delivering with Tolo! 🚀"
                 )
                 send_message(chat_id, msg)
                 continue
+            
+            elif text.lower() == "/mydeliveries":
+                recent_deliveries = list(deliveries_collection.find(
+                    {"chat_id": chat_id}
+                ).sort("timestamp", -1).limit(5))
+
+                if not recent_deliveries:
+                    send_message(chat_id, "📭 You haven’t made any deliveries yet.")
+                    continue
+
+                message_lines = ["📦 *Your Last 5 Deliveries:*"]
+                for d in recent_deliveries:
+                    date_str = d.get("timestamp", "N/A")
+                    level = d.get("user_level", "N/A")
+                    free = "✅ Free" if d.get("is_free_delivery") else "💰 Paid"
+                    destination = d.get("receiver_location", "Unknown")
+                    message_lines.append(f"📍 {destination}\n🗓️ {date_str} | {level} | {free}\n")
+
+                send_message(chat_id, "\n".join(message_lines))
+                continue
+
 
 
             if text.lower() == "/start":
@@ -438,7 +470,13 @@ def main():
                     delivery_count = deliveries_collection.count_documents({"chat_id": chat_id})
                     level = get_user_level(delivery_count)
                     state["data"]["user_level"] = f"Level {level}"
-                    state["data"]["is_free_delivery"] = True
+
+                    if not has_used_free_delivery(chat_id, level):
+                        state["data"]["is_free_delivery"] = True
+                        mark_free_delivery_used(chat_id, level)
+                    else:
+                        state["data"]["is_free_delivery"] = False
+
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
