@@ -317,6 +317,18 @@ def main():
                     "6 - 10 ኪ.ሜ: 200 ብር\n"
                     "11 - 20 ኪ.ሜ: 300 ብር\n"
                 )
+            if "text" in message:
+                text = message["text"]
+                chat_id = message["chat"]["id"]
+
+                # Check if user has an active delivery session (not feedback step)
+                if chat_id in states and states[chat_id].get("step") != "feedback":
+                    # Only allow /cancel and /start commands while active session exists
+                    if text.lower() not in ["/cancel", "/start"]:
+                        send_message(chat_id, "⚠️ You have an ongoing delivery. Please complete it or send /cancel to abort.")
+                        logging.info(f"Blocked command during active session from chat_id {chat_id}: {text}")
+                        # Stop further processing this message
+                        return
             if text.lower() == "/start":
                 if chat_id in states:
                     
