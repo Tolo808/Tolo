@@ -79,6 +79,7 @@ Commands = [
     {"command": "/cancel", "description": "Cancel current operation / አሁን ያቋርጡ"},
     {"command": "/feedback", "description": "Send feedback / እቅድ ያስተውሉ"},
     {"command": "/price", "description": "Get price list / ዋጋ "},
+    {"command": "/history", "description": "View delivery history / የአቅርቦት ታሪክ ይመልከቱ"},
 ]
 
 # Fields expected in the delivery form
