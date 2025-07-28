@@ -79,6 +79,8 @@ Commands = [
     {"command": "/cancel", "description": "Cancel current operation / አሁን ያቋርጡ"},
     {"command": "/feedback", "description": "Send feedback / እቅድ ያስተውሉ"},
     {"command": "/price", "description": "Get price list / ዋጋ "},
+    {"command": "/level", "description": "Check your level / ደረጃዎን ያሳዩ"},
+
 ]
 
 # Fields expected in the delivery form
@@ -96,7 +98,7 @@ Data_Message = [
 
 
 def get_updates(offset=None):
-    return requests.get(f'{API_URL}/getUpdates', params={'timeout': 100, 'offset': offset}).json()
+    return requests.get(f'{API_URL}/getUpdates', params={'timeout': 100, 'offset': offset}, timeout=110).json()
 
 
 def send_message(chat_id, text, reply_markup=None):
@@ -154,6 +156,7 @@ def remove_keyboard(chat_id):
 def save_delivery(data):
    
     try:
+        
         deliveries_collection.insert_one(data)
         print("✅ Delivery saved to MongoDB.")
         logging.info(f"Delivery saved: {data}")
@@ -214,11 +217,21 @@ def save_states(states):
     with open(STATE_FILE, 'w') as f:
         json.dump(states, f)
 
+def get_user_level(delivery_count):
+    if delivery_count < 10:
+        return 1
+    return (delivery_count // 10) + 1
+
 
 def main():
     last_update_id = load_offset()
     print("🚀 Bot is running...")
     logging.info("Bot started successfully.")
+    response = requests.post(url, json={"commands": Commands})
+    delivery_count = deliveries_collection.count_documents({"chat_id": chat_id})
+    level = get_user_level(delivery_count)
+    state["data"]["user_level"] = f"Level {level}"
+    state["data"]["is_free_delivery"] = True
 
     while True:
         updates = get_updates(offset=last_update_id)
@@ -325,7 +338,28 @@ def main():
                     "11 - 20 ኪ.ሜ: 300 ብር\n"
                 )
             
-            
+       
+
+            elif text.lower() == "/level":
+                delivery_count = deliveries_collection.count_documents({"chat_id": chat_id})
+                level = get_user_level(delivery_count)
+                next_level = level + 1
+                next_target = next_level * 10
+                to_next = next_target - delivery_count
+
+                perks = f"🎁 You qualify for {level} free delivery{'ies' if level > 1 else ''}!"
+                msg = (
+                    f"🏅 *Your Level Info*\n\n"
+                    f"Level: {level}\n"
+                    f"Deliveries made: {delivery_count}\n"
+                    f"{perks}\n\n"
+                    f"📈 {to_next} more deliveries to reach Level {next_level}.\n"
+                    f"Keep delivering with Tolo! 🚀"
+                )
+                send_message(chat_id, msg)
+                continue
+
+
             if text.lower() == "/start":
                 if chat_id in states:
                     
@@ -409,7 +443,7 @@ def main():
                     save_states(states)
                     send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በSMS አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
                 
-                response = requests.post(url, json={"commands": Commands})
+               
                     
             else:
                 send_message(chat_id, "Type /start to begin. / እባክዎ /start ይጻፉ ለመጀመር።")
