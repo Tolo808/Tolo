@@ -7,6 +7,17 @@ from geopy.geocoders import Nominatim
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
+import logging
+
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO,
+    filename='bot_activity.log',  # logs saved to this file
+    filemode='a'
+)
+
+
+
 load_dotenv()
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["tolo_delivery"]
@@ -23,6 +34,8 @@ AFRO_SENDER_ID = os.getenv("AFRO_SENDER_ID")
 API_URL = f'https://api.telegram.org/bot{BOT_TOKEN}'
 JSON_FILE = 'messages.json'
 STATE_FILE = 'user_states.json'
+
+
 
 offset_collection = db["offset_tracking"]
 
@@ -140,8 +153,10 @@ def save_delivery(data):
     try:
         deliveries_collection.insert_one(data)
         print("✅ Delivery saved to MongoDB.")
+        logging.info(f"Delivery saved: {data}")
     except Exception as e:
         print("❌ Failed to save to MongoDB:", e)
+        logging.error(f"Error saving delivery: {e}")    
 
 
 def send_sms(phone_number, message):
@@ -180,8 +195,10 @@ def save_feedback(data):
     try:
         feedback_collection.insert_one(data)
         print("✅ Feedback saved to MongoDB.")
+        logging.info(f"Feedback saved: {data}")
     except Exception as e:
         print("❌ Failed to save feedback:", e)
+        error_message = f"Error saving feedback: {e}"
 
 
 
@@ -198,6 +215,7 @@ def save_states(states):
 def main():
     last_update_id = load_offset()
     print("🚀 Bot is running...")
+    logging.info("Bot started successfully.")
 
     while True:
         updates = get_updates(offset=last_update_id)
@@ -210,6 +228,7 @@ def main():
                 continue
 
             chat_id = str(message["chat"]["id"])
+            logging.info(f"Processing message from chat_id {chat_id} with update_id {update_id}")
 
             if "location" in message and chat_id in states:
                 lat = message["location"]["latitude"]
@@ -218,7 +237,7 @@ def main():
                 states[chat_id]["data"].update(get_address_from_coordinates(lat, lon))
                 states[chat_id]["step"] += 1
                 save_states(states)
-            
+                logging.info(f"Location received for chat_id {chat_id}: {lat}, {lon}")
                 request_payment_option(chat_id)
                 continue  # ✅ No update to last_update_id here
 
@@ -226,6 +245,8 @@ def main():
                 continue
 
             text = message["text"].strip()
+            logging.info(f"Received message: {text} from chat_id {chat_id}")
+
             if text.lower() == "/feedback":
                 states[chat_id] = {"step": "feedback"}  # special mode
                 save_states(states)
@@ -302,11 +323,13 @@ def main():
                     if not ((text.startswith("09") and len(text) == 10 and text.isdigit()) or
                             (text.startswith("+2519") and len(text) == 13 and text[1:].isdigit())):
                         send_message(chat_id, "⚠️ Invalid Ethiopian phone number. Example: 0912345678 or +251912345678 / እባክዎ ትክክል የኢትዮጵያ ስልክ ቁጥር ያስገቡ።")
+                        logging.warning(f"Invalid phone number input from chat_id {chat_id}: {text}")
                         continue
 
                 if field == "Quantity":
                     if not text.isdigit() or int(text) <= 0:
                         send_message(chat_id, "⚠️ Please enter a valid quantity (positive number). / እባክዎ ትክክል ቁጥር ያስገቡ።")
+                        logging.warning(f"Invalid quantity input from chat_id {chat_id}: {text}")
                         continue
 
                 valid_inputs = ["Sender / ላኪ", "Receiver / ተቀባይ"]
@@ -320,6 +343,7 @@ def main():
              
                 
                 state["data"][field] = text
+                logging.info(f"Step {step} completed for chat_id {chat_id}: {field} = {text}")
 
                 if step == 0:
                     user = message["from"]
@@ -350,12 +374,18 @@ def main():
                     
             else:
                 send_message(chat_id, "Type /start to begin. / እባክዎ /start ይጻፉ ለመጀመር።")
+                logging.info(f"Prompted chat_id={chat_id} to use /start")
+                
             
-        # ✅ Update offset here ONLY ONCE after all processing
         if updates.get("result"):
             last_update_id = updates["result"][-1]["update_id"] + 1
+            save_offset(last_update_id)
+
 
         time.sleep(1)
         
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        logging.critical(f"🚨 Bot crashed: {e}", exc_info=True)
