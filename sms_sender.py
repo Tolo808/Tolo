@@ -325,6 +325,45 @@ def main():
                     "11 - 20 ኪ.ሜ: 300 ብር\n"
                 )
             
+            if text.lower() == "/history":
+                
+                sender_phone = states.get(chat_id, {}).get("sender_phone")
+
+                if not sender_phone:
+                    send_message(chat_id, "⚠️ No sender phone found in your session. To view history, please start a delivery first or make sure your phone is registered.")
+                    continue
+
+                deliveries = list(deliveries_collection.find(
+                    {"sender_phone": sender_phone}
+                ).sort("created_at", -1).limit(10))
+
+                if not deliveries:
+                    send_message(chat_id, "ℹ️ You have no delivery history.")
+                    continue
+
+                msg_lines = ["📦 *Your recent deliveries:*"]
+                for d in deliveries:
+                    status = d.get("status", "unknown").capitalize()
+                    created = d.get("created_at", "unknown")
+                    try:
+                        created = str(created)[:16]
+                    except:
+                        pass
+
+                    line = (
+                        f"• ID: {d.get('_id')}\n"
+                        f"  From: {d.get('sender_name')} ({d.get('sender_phone')})\n"
+                        f"  To: {d.get('receiver_name')} ({d.get('receiver_phone')})\n"
+                        f"  Status: {status}\n"
+                        f"  Date: {created}\n"
+                        f"  Price: {d.get('price', 'N/A')} ETB\n"
+                    )
+                    msg_lines.append(line)
+
+                send_message(chat_id, "\n\n".join(msg_lines))
+                continue
+
+
             if text.lower() == "/start":
                 if chat_id in states:
                     
