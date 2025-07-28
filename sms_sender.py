@@ -265,7 +265,7 @@ def main():
             text = message["text"].strip()
             logging.info(f"Received message: {text} from chat_id {chat_id}")
 
-            if text.lower() in ["/about", "/contact", "/feedback"]:
+            if text.lower() in ["/about", "/contact", "/feedback", "/price"]:
                 # Check if user is in an active delivery session (step is integer)
                 if chat_id in states and isinstance(states[chat_id].get("step"), int):
                     send_message(chat_id, "⚠️ You have an active delivery session. Please finish or cancel it before using this command.")
