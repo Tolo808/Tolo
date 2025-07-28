@@ -79,7 +79,6 @@ Commands = [
     {"command": "/cancel", "description": "Cancel current operation / አሁን ያቋርጡ"},
     {"command": "/feedback", "description": "Send feedback / እቅድ ያስተውሉ"},
     {"command": "/price", "description": "Get price list / ዋጋ "},
-    {"command": "/history", "description": "View delivery history / የአቅርቦት ታሪክ ይመልከቱ"},
 ]
 
 # Fields expected in the delivery form
@@ -326,68 +325,7 @@ def main():
                     "11 - 20 ኪ.ሜ: 300 ብር\n"
                 )
             
-            elif text.lower() == "/history":
-                # Check if we already know the sender's phone number for this user
-                sender_phone = states.get(chat_id, {}).get("data", {}).get("sender_phone")
-
-                if not sender_phone:
-                    # Ask user for their phone number first
-                    states[chat_id] = {"step": "history_await_phone"}
-                    save_states(states)
-                    send_message(chat_id, "Please enter your sender phone number to retrieve your delivery history.\n"
-                                        "እባክዎ የላኪውን ስልክ ቁጥር ያስገቡ እንዲሁም የአቅርቦት ታሪክዎን ለማየት።")
-                    continue
-
-            if chat_id in states and states[chat_id].get("step") == "history_await_phone":
-                # Validate phone input for history query
-                if not ((text.startswith("09") and len(text) == 10 and text.isdigit()) or
-                        (text.startswith("+2519") and len(text) == 13 and text[1:].isdigit())):
-                    send_message(chat_id, "⚠️ Invalid Ethiopian phone number format. Please enter a valid number like 0912345678 or +251912345678.")
-                    continue
-
-                # Save phone number in state and clear step after
-                states[chat_id]["data"] = states[chat_id].get("data", {})
-                states[chat_id]["data"]["sender_phone"] = text
-                states[chat_id]["step"] = 0  # reset or remove step if you want
-                save_states(states)
-                sender_phone = text
-
-                # Query deliveries for that phone number
-                deliveries = list(deliveries_collection.find(
-                    {"sender_phone": sender_phone}
-                ).sort("created_at", -1).limit(10))
-
-                if not deliveries:
-                    send_message(chat_id, "ℹ️ No delivery history found for this phone number.")
-                else:
-                    msg_lines = ["📦 *Your recent deliveries:*"]
-                    for d in deliveries:
-                        status = d.get("status", "unknown").capitalize()
-                        created = d.get("created_at", "unknown")
-                        try:
-                            created = str(created)[:16]
-                        except:
-                            pass
-
-                        line = (
-                            f"• ID: {d.get('_id')}\n"
-                            f"  From: {d.get('sender_name', 'Unknown')} ({d.get('sender_phone')})\n"
-                            f"  To: {d.get('receiver_name', 'Unknown')} ({d.get('receiver_phone')})\n"
-                            f"  Status: {status}\n"
-                            f"  Date: {created}\n"
-                            f"  Price: {d.get('price', 'N/A')} ETB\n"
-                        )
-                        msg_lines.append(line)
-
-                    send_message(chat_id, "\n\n".join(msg_lines))
-
-                # Optionally clear the history step or keep phone in session
-                states[chat_id]["step"] = 0
-                save_states(states)
-                continue
-
-
-
+            
             if text.lower() == "/start":
                 if chat_id in states:
                     
