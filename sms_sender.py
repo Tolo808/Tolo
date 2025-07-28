@@ -6,15 +6,18 @@ from datetime import datetime
 from geopy.geocoders import Nominatim   
 from dotenv import load_dotenv
 from pymongo import MongoClient
-
 import logging
 
+
 logging.basicConfig(
-    format='%(asctime)s - %(levelname)s - %(message)s',
     level=logging.INFO,
-    filename='bot_activity.log',  # logs saved to this file
-    filemode='a'
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("bot_activity.log"),  
+        logging.StreamHandler()                  
+    ]
 )
+
 
 
 
