@@ -226,6 +226,21 @@ def main():
 
         for result in updates.get("result", []):
             update_id = result["update_id"]
+            if "callback_query" in result:
+                callback = result["callback_query"]
+                chat_id = str(callback["message"]["chat"]["id"])
+                data = callback["data"]
+
+                if data == "start_over":
+                    states[chat_id] = {"step": 0, "data": {}}
+                    save_states(states)
+                    send_message(chat_id, "🔄 Starting over. Let's begin again.")
+                    send_message(chat_id, Data_Message[0]['label'])
+                elif data == "keep_going":
+                    step = states[chat_id]["step"]
+                    current_field = Data_Message[step]["label"]
+                    send_message(chat_id, f"📍 Continuing your current session.\n\n{current_field}")
+
             message = result.get("message")
             if not message:
                 continue
@@ -303,10 +318,22 @@ def main():
                     "11 - 20 ኪ.ሜ: 300 ብር\n"
                 )
             if text.lower() == "/start":
-                states[chat_id] = {"step": 0, "data": {}}
-                save_states(states)
-                send_message(chat_id, "👋 Selam! Welcome to Tolo Delivery.\nሰላም! ወደ ቶሎ ዴሊቨሪ እንኳን በደህና መጡ።\nLet's begin / እንጀምር።")
-                send_message(chat_id, Data_Message[0]['label'])
+                if chat_id in states:
+                    
+                    reply_markup = {
+                        "inline_keyboard": [
+                            [{"text": "✅ Yes, start over", "callback_data": "start_over"}],
+                            [{"text": "❌ No, continue current", "callback_data": "keep_going"}]
+                        ]
+                    }
+                    send_message(chat_id, "⚠️ You already have an active delivery. Do you want to cancel it and start over?", reply_markup=reply_markup)
+                else:
+                   
+                    states[chat_id] = {"step": 0, "data": {}}
+                    save_states(states)
+                    send_message(chat_id, "👋 Selam! Welcome to Tolo Delivery.\nሰላም! ወደ ቶሎ ዴሊቨሪ እንኳን በደህና መጡ።\nLet's begin / እንጀምር።")
+                    send_message(chat_id, Data_Message[0]['label'])
+
             
             elif text.lower() == "/cancel":
                 if chat_id in states:
