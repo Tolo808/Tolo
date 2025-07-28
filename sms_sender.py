@@ -228,10 +228,7 @@ def main():
     print("🚀 Bot is running...")
     logging.info("Bot started successfully.")
     response = requests.post(url, json={"commands": Commands})
-    delivery_count = deliveries_collection.count_documents({"chat_id": chat_id})
-    level = get_user_level(delivery_count)
-    state["data"]["user_level"] = f"Level {level}"
-    state["data"]["is_free_delivery"] = True
+    
 
     while True:
         updates = get_updates(offset=last_update_id)
@@ -438,6 +435,10 @@ def main():
                 else:
                     state["data"]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     state["data"]["source"] = "bot" 
+                    delivery_count = deliveries_collection.count_documents({"chat_id": chat_id})
+                    level = get_user_level(delivery_count)
+                    state["data"]["user_level"] = f"Level {level}"
+                    state["data"]["is_free_delivery"] = True
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
