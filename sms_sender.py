@@ -7,7 +7,7 @@ from geopy.geocoders import Nominatim
 from dotenv import load_dotenv
 from pymongo import MongoClient
 import logging
-
+from uuid import uuid4
 
 logging.basicConfig(
     level=logging.INFO,
@@ -249,7 +249,7 @@ def main():
                 callback = result["callback_query"]
                 chat_id = str(callback["message"]["chat"]["id"])
                 data = callback["data"]
-
+                
                 if data == "start_over":
                     states[chat_id] = {"step": 0, "data": {}}
                     save_states(states)
@@ -259,6 +259,14 @@ def main():
                     step = states[chat_id]["step"]
                     current_field = Data_Message[step]["label"]
                     send_message(chat_id, f"📍 Continuing your current session.\n\n{current_field}")
+                elif data == "new_order":
+                    states[chat_id] = {"step": 0, "data": {}}
+                    save_states(states)
+                    send_message(chat_id, "📦 Great! Let's begin your new order.")
+                    send_message(chat_id, Data_Message[0]["label"])
+
+                elif data == "no_more_orders":
+                    send_message(chat_id, "👍 Thank you for using Tolo Delivery!\nYou can type /start anytime to create a new delivery.")
 
             message = result.get("message")
             if not message:
@@ -477,10 +485,21 @@ def main():
                     else:
                         state["data"]["is_free_delivery"] = False
 
+
+                    order_id = str(uuid4())[:8]
+                    state["data"]["order_id"] = order_id
+
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
-                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery.\n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በSMS አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን")
+                    reply_markup = {
+                        "inline_keyboard": [
+                            [{"text": "➕ New Order", "callback_data": "new_order"}],
+                            [{"text": "❌ Done", "callback_data": "no_more_orders"}]
+                        ]
+                    }
+
+                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery..\nWould you like to place another order? \n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በSMS አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን", reply_markup=reply_markup)
                 
                
                     
