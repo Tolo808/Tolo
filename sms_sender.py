@@ -27,6 +27,7 @@ db = client["tolo_delivery"]
 deliveries_collection = db["deliveries"]
 feedback_collection = db["feedback"]
 free_delivery_collection = db["free_delivery"]
+last_info_collection = db["last_order_info"]
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 username = os.getenv("AT_USERNAME")
 api_key = os.getenv("AT_API_KEY")
@@ -230,6 +231,16 @@ def has_used_free_delivery(chat_id, level):
 def mark_free_delivery_used(chat_id, level):
     free_delivery_collection.insert_one({"chat_id": chat_id, "level": level, "used": True})
 
+def get_last_order_info(chat_id):
+    doc = last_info_collection.find_one({"chat_id": chat_id})
+    return doc.get("data", {}) if doc else {}
+
+def save_last_order_info(chat_id, data):
+    last_info_collection.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"data": data}},
+        upsert=True
+    )
 
 
 def main():
@@ -261,7 +272,9 @@ def main():
                     send_message(chat_id, f"📍 Continuing your current session.\n\n{current_field}")
                 elif data == "new_order":
                     states[chat_id] = {"step": 0, "data": {}}
-                    save_states(states)
+                    previous = get_last_order_info(chat_id)
+                    if previous:
+                        payment_choice = states[chat_id]["data"].get("payment_from_sender_or_receiver")
                     send_message(chat_id, "📦 Great! Let's begin your new order.")
                     send_message(chat_id, Data_Message[0]["label"])
 
@@ -444,13 +457,25 @@ def main():
 
                 valid_inputs = ["Sender / ላኪ", "Receiver / ተቀባይ"]
                 if field == "payment_from_sender_or_receiver":
+                    valid_inputs = ["Sender / ላኪ", "Receiver / ተቀባይ"]
                     if text not in valid_inputs:
                         request_payment_option(chat_id)
                         continue
                     else:
-                        remove_keyboard(chat_id)  # ✅ User selected valid input → now remove keyboard
+                        remove_keyboard(chat_id)
+                        if text == "Receiver / ተቀባይ":
+                            state["skip_sender_info"] = True
+                            previous = last_info_collection.get(chat_id, {})
+                            state["data"]["pickup"] = previous.get("pickup")
+                            state["data"]["sender_phone"] = previous.get("sender_phone")
+                        else:
+                            state["skip_sender_info"] = False
+                            previous = get_last_order_info(chat_id)
 
-             
+                            state["data"]["dropoff"] = previous.get("dropoff")
+                            state["data"]["receiver_phone"] = previous.get("receiver_phone")
+
+                
                 
                 state["data"][field] = text
                 logging.info(f"Step {step} completed for chat_id {chat_id}: {field} = {text}")
@@ -459,6 +484,18 @@ def main():
                     user = message["from"]
                     full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
                     state["data"]["user_name"] = full_name
+
+                 # Advance to next step, skipping if needed
+                next_step = step + 1
+                while next_step < len(Data_Message):
+                    next_field = Data_Message[next_step]["field"]
+                    if state.get("skip_sender_info") and next_field in ["pickup", "sender_phone"]:
+                        next_step += 1
+                        continue
+                    if not state.get("skip_sender_info") and next_field in ["dropoff", "receiver_phone"]:
+                        next_step += 1
+                        continue
+                    break
 
                 if step + 1 < len(Data_Message):
                     next_field_info = Data_Message[step + 1]
@@ -490,6 +527,14 @@ def main():
                     state["data"]["order_id"] = order_id
 
                     save_delivery(state["data"])
+                    save_last_order_info(chat_id, {
+                        "pickup": state["data"].get("pickup"),
+                        "sender_phone": state["data"].get("sender_phone"),
+                        "dropoff": state["data"].get("dropoff"),
+                        "receiver_phone": state["data"].get("receiver_phone")
+                    })
+
+
                     del states[chat_id]
                     save_states(states)
                     reply_markup = {
@@ -499,7 +544,7 @@ def main():
                         ]
                     }
 
-                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery..\nWould you like to place another order? \n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በSMS አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን", reply_markup=reply_markup)
+                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery..\nWould you like to place another order? \n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በSMS አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን\n ሌላ ትእዛዝ መጨመር ይፍልጋሉ?", reply_markup=reply_markup)
                 
                
                     
