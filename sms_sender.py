@@ -271,12 +271,41 @@ def main():
                     current_field = Data_Message[step]["label"]
                     send_message(chat_id, f"📍 Continuing your current session.\n\n{current_field}")
                 elif data == "new_order":
+                    previous = get_last_order_info(chat_id) or {}
                     states[chat_id] = {"step": 0, "data": {}}
-                    previous = get_last_order_info(chat_id)
-                    if previous:
-                        payment_choice = states[chat_id]["data"].get("payment_from_sender_or_receiver")
-                    send_message(chat_id, "📦 Great! Let's begin your new order.")
-                    send_message(chat_id, Data_Message[0]["label"])
+
+                    payment_choice = previous.get("payment_from_sender_or_receiver")
+
+                    if payment_choice:
+                        # Save payment choice in new state
+                        states[chat_id]["data"]["payment_from_sender_or_receiver"] = payment_choice
+                        
+                        # Set skip flags accordingly
+                        if payment_choice == "Receiver / ተቀባይ":
+                            states[chat_id]["skip_sender_info"] = True
+                            # Pre-fill sender info from previous
+                            states[chat_id]["data"]["pickup"] = previous.get("pickup")
+                            states[chat_id]["data"]["sender_phone"] = previous.get("sender_phone")
+                        else:  # Sender pays
+                            states[chat_id]["skip_sender_info"] = False
+                            # Pre-fill receiver info from previous
+                            states[chat_id]["data"]["dropoff"] = previous.get("dropoff")
+                            states[chat_id]["data"]["receiver_phone"] = previous.get("receiver_phone")
+
+                        # Skip the payment step and move to the next logical step (index 1)
+                        next_step = 1
+                        states[chat_id]["step"] = next_step
+                        save_states(states)
+
+                        # Send prompt for the next step after payment choice
+                        next_field_info = Data_Message[next_step]
+                        send_message(chat_id, f"📦 Starting new order.\n\n{next_field_info['label']}")
+                    else:
+                        # No previous payment choice, start fresh
+                        save_states(states)
+                        send_message(chat_id, "📦 Great! Let's begin your new order.")
+                        send_message(chat_id, Data_Message[0]["label"])
+
 
                 elif data == "no_more_orders":
                     send_message(chat_id, "👍 Thank you for using Tolo Delivery!\nYou can type /start anytime to create a new delivery.")
@@ -463,17 +492,21 @@ def main():
                         continue
                     else:
                         remove_keyboard(chat_id)
+                        state["data"]["payment_from_sender_or_receiver"] = text
+
+                        previous = get_last_order_info(chat_id) or {}
+
                         if text == "Receiver / ተቀባይ":
                             state["skip_sender_info"] = True
-                            previous = get_last_order_info(chat_id)
+                            # Use previous sender info
                             state["data"]["pickup"] = previous.get("pickup")
                             state["data"]["sender_phone"] = previous.get("sender_phone")
                         else:
                             state["skip_sender_info"] = False
-                            previous = get_last_order_info(chat_id)
-
+                            # Use previous receiver info
                             state["data"]["dropoff"] = previous.get("dropoff")
                             state["data"]["receiver_phone"] = previous.get("receiver_phone")
+
 
                 
                 
@@ -496,19 +529,18 @@ def main():
                         next_step += 1
                         continue
                     break
+                state["step"] = next_step
+                save_states(states)
 
-                if step + 1 < len(Data_Message):
-                    next_field_info = Data_Message[step + 1]
-                    state["step"] += 1
-                    save_states(states)
-
+                if next_step < len(Data_Message):
+                    next_field_info = Data_Message[next_step]
                     if next_field_info["field"] == "location_marker":
                         request_location(chat_id)
                     elif next_field_info["field"] == "payment_from_sender_or_receiver":
                         request_payment_option(chat_id)
-                      
                     else:
                         send_message(chat_id, next_field_info["label"])
+
                 else:
                     state["data"]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     state["data"]["source"] = "bot" 
