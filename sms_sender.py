@@ -465,7 +465,7 @@ def main():
                         remove_keyboard(chat_id)
                         if text == "Receiver / ተቀባይ":
                             state["skip_sender_info"] = True
-                            previous = last_info_collection.get(chat_id, {})
+                            previous = get_last_order_info(chat_id)
                             state["data"]["pickup"] = previous.get("pickup")
                             state["data"]["sender_phone"] = previous.get("sender_phone")
                         else:
