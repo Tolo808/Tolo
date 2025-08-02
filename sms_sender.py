@@ -27,7 +27,6 @@ db = client["tolo_delivery"]
 deliveries_collection = db["deliveries"]
 feedback_collection = db["feedback"]
 free_delivery_collection = db["free_delivery"]
-last_info_collection = db["last_order_info"]
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 username = os.getenv("AT_USERNAME")
 api_key = os.getenv("AT_API_KEY")
@@ -231,16 +230,6 @@ def has_used_free_delivery(chat_id, level):
 def mark_free_delivery_used(chat_id, level):
     free_delivery_collection.insert_one({"chat_id": chat_id, "level": level, "used": True})
 
-def get_last_order_info(chat_id):
-    doc = last_info_collection.find_one({"chat_id": chat_id})
-    return doc.get("data", {}) if doc else {}
-
-def save_last_order_info(chat_id, data):
-    last_info_collection.update_one(
-        {"chat_id": chat_id},
-        {"$set": {"data": data}},
-        upsert=True
-    )
 
 
 def main():
@@ -248,6 +237,7 @@ def main():
     print("🚀 Bot is running...")
     logging.info("Bot started successfully.")
     response = requests.post(url, json={"commands": Commands})
+    
 
     while True:
         updates = get_updates(offset=last_update_id)
@@ -259,54 +249,20 @@ def main():
                 callback = result["callback_query"]
                 chat_id = str(callback["message"]["chat"]["id"])
                 data = callback["data"]
-
+                
                 if data == "start_over":
                     states[chat_id] = {"step": 0, "data": {}}
                     save_states(states)
                     send_message(chat_id, "🔄 Starting over. Let's begin again.")
                     send_message(chat_id, Data_Message[0]['label'])
-
                 elif data == "keep_going":
                     step = states[chat_id]["step"]
                     current_field = Data_Message[step]["label"]
                     send_message(chat_id, f"📍 Continuing your current session.\n\n{current_field}")
-
                 elif data == "new_order":
-                    previous = get_last_order_info(chat_id)
-                    # Initialize new state for new order
                     states[chat_id] = {"step": 0, "data": {}}
-
-                    if previous:
-                        payment_choice = previous.get("payment_from_sender_or_receiver")
-                        if payment_choice == "Sender / ላኪ":
-                            # Skip receiver info, pre-fill from last order
-                            states[chat_id]["skip_receiver_info"] = True
-                            states[chat_id]["data"].update({
-                                "dropoff": previous.get("dropoff"),
-                                "receiver_phone": previous.get("receiver_phone"),
-                                "payment_from_sender_or_receiver": payment_choice
-                            })
-                        elif payment_choice == "Receiver / ተቀባይ":
-                            # Skip sender info, pre-fill from last order
-                            states[chat_id]["skip_sender_info"] = True
-                            states[chat_id]["data"].update({
-                                "pickup": previous.get("pickup"),
-                                "sender_phone": previous.get("sender_phone"),
-                                "payment_from_sender_or_receiver": payment_choice
-                            })
-                        else:
-                            # No payment info found, start fresh
-                            states[chat_id]["skip_sender_info"] = False
-                            states[chat_id]["skip_receiver_info"] = False
-
-                    else:
-                        # No previous order info
-                        states[chat_id]["skip_sender_info"] = False
-                        states[chat_id]["skip_receiver_info"] = False
-
                     save_states(states)
                     send_message(chat_id, "📦 Great! Let's begin your new order.")
-                    # Start from first field (step 0)
                     send_message(chat_id, Data_Message[0]["label"])
 
                 elif data == "no_more_orders":
@@ -328,7 +284,7 @@ def main():
                 save_states(states)
                 logging.info(f"Location received for chat_id {chat_id}: {lat}, {lon}")
                 request_payment_option(chat_id)
-                continue
+                continue  # ✅ No update to last_update_id here
 
             if "text" not in message:
                 continue
@@ -336,15 +292,143 @@ def main():
             text = message["text"].strip()
             logging.info(f"Received message: {text} from chat_id {chat_id}")
 
-            # ... (handle commands like /start, /cancel, /feedback, etc. here as before) ...
+            if text.lower() in ["/about", "/contact", "/feedback", "/price"]:
+                # Check if user is in an active delivery session (step is integer)
+                if chat_id in states and isinstance(states[chat_id].get("step"), int):
+                    send_message(chat_id, "⚠️ You have an active delivery session. Please finish or cancel it before using this command.")
+                    logging.info(f"Blocked {text} command for active session user {chat_id}")
+                    continue
 
-            if chat_id in states:
+            if text.lower() == "/feedback":
+                states[chat_id] = {"step": "feedback"}  # special mode
+                save_states(states)
+                send_message(chat_id, "📝 Please type your feedback below. / እባክዎ እቅድዎን እዚህ ያስገቡ:")
+                continue
+
+            # If user is in feedback mode
+            if chat_id in states and states[chat_id].get("step") == "feedback":
+                user = message["from"]
+                full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+                feedback_data = {
+                    "user_name": full_name,
+                    "chat_id": chat_id,
+                    "feedback": text,
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                save_feedback(feedback_data)
+                send_message(chat_id, "✅ Thank you for your feedback! / እናመሰግናለን ለእቅድዎ!")
+                del states[chat_id]
+                save_states(states)
+                continue
+            elif text.lower() == "/about":
+                send_message(chat_id,
+                    "📦 *About Tolo Delivery*\n\n"
+                    "Tolo Delivery is a fast and reliable delivery service helping you send packages across Addis Ababa.\n"
+                    "We are committed to making your delivery experience quick and seamless.\n\n"
+                    "ቶሎ ዴሊቨሪ በአዲስ አበባ ውስጥ ጥቅሎችን ለመላክ የሚረዳ ፈጣን እና አስተማማኝ የአቅርቦት አገልግሎት ነው. \n"
+                    "የአቅርቦት ተሞክሮዎ ፈጣን እና እንከን የለሽ ለማድረግ ተግተን እንሰራለን"
+                )
+
+            elif text.lower() == "/contact":
+                send_message(chat_id,
+                    "📞 *Contact Us*\n\n"
+                    "Phone: +251921296933\n"
+                    "     : +251900041277\n"
+                    "Email: info@tolo9558.com\n"
+                    "ለአገልግሎታችን ከሆነ ጥያቄ ወይም መረጃ ለማግኘት:\n"
+                    "ስልክ: +251921296933\n"
+                    "     +251900041277\n"
+                    "ኢሜይል: info@tolo9558.com"
+                )
+            elif text.lower() == "/price":
+                send_message(chat_id,
+                    "💰 *Delivery Price*: \n\n"
+                    "1 - 5 km: 100 birr\n"
+                    "6 - 10 km: 200 birr\n"
+                    "11 - 20 km: 300 birr\n"
+                    "የዋጋ ዝርዝር: \n"
+                    "1 - 5 ኪ.ሜ: 100 ብር\n"
+                    "6 - 10 ኪ.ሜ: 200 ብር\n"
+                    "11 - 20 ኪ.ሜ: 300 ብር\n"
+                )
+            
+       
+
+            elif text.lower() == "/level":
+                delivery_count = deliveries_collection.count_documents({"chat_id": chat_id})
+                level = get_user_level(delivery_count)
+                next_level = level + 1
+                next_target = next_level * 10
+                to_next = next_target - delivery_count
+
+                used = has_used_free_delivery(chat_id, level)
+                free_text = "✅ Used" if used else "🎁 Available"
+
+                msg = (
+                    f"🏅 *Your Level Info*\n\n"
+                    f"Level: {level}\n"
+                    f"Deliveries made: {delivery_count}\n"
+                    f"Free delivery at this level: {free_text}\n\n"
+                    f"📈 {to_next} more deliveries to reach Level {next_level}.\n"
+                    f"Keep delivering with Tolo! 🚀"
+                )
+                send_message(chat_id, msg)
+                continue
+            
+            elif text.lower() == "/mydeliveries":
+                recent_deliveries = list(deliveries_collection.find(
+                    {"chat_id": chat_id}
+                ).sort("timestamp", -1).limit(5))
+
+                if not recent_deliveries:
+                    send_message(chat_id, "📭 You haven’t made any deliveries yet.")
+                    continue
+
+                message_lines = ["📦 *Your Last 5 Deliveries:*"]
+                for d in recent_deliveries:
+                    date_str = d.get("timestamp", "N/A")
+                    level = d.get("user_level", "N/A")
+                    free = "✅ Free" if d.get("is_free_delivery") else "💰 Paid"
+                    destination = d.get("receiver_location", "Unknown")
+                    message_lines.append(f"📍 {destination}\n🗓️ {date_str} | {level} | {free}\n")
+
+                send_message(chat_id, "\n".join(message_lines))
+                continue
+
+
+
+            if text.lower() == "/start":
+                if chat_id in states:
+                    
+                    reply_markup = {
+                        "inline_keyboard": [
+                            [{"text": "✅ Yes, start over", "callback_data": "start_over"}],
+                            [{"text": "❌ No, continue current", "callback_data": "keep_going"}]
+                        ]
+                    }
+                    send_message(chat_id, "⚠️ You already have an active delivery. Do you want to cancel it and start over?", reply_markup=reply_markup)
+                else:
+                   
+                    states[chat_id] = {"step": 0, "data": {}}
+                    save_states(states)
+                    send_message(chat_id, "👋 Selam! Welcome to Tolo Delivery.\nሰላም! ወደ ቶሎ ዴሊቨሪ እንኳን በደህና መጡ።\nLet's begin / እንጀምር።")
+                    send_message(chat_id, Data_Message[0]['label'])
+
+            
+            elif text.lower() == "/cancel":
+                if chat_id in states:
+                    del states[chat_id]
+                    save_states(states)
+                    send_message(chat_id, "❌ Operation cancelled. / እቅዱ ተሰርዟል።")
+                else:
+                    send_message(chat_id, "No operation to cancel. / ምንም እቅድ የለም።")
+
+            elif chat_id in states:
                 state = states[chat_id]
                 step = state["step"]
                 field_info = Data_Message[step]
                 field = field_info["field"]
 
-                # Validate phone numbers
                 if field in ["sender_phone", "receiver_phone"]:
                     if not ((text.startswith("09") and len(text) == 10 and text.isdigit()) or
                             (text.startswith("+2519") and len(text) == 13 and text[1:].isdigit())):
@@ -352,35 +436,22 @@ def main():
                         logging.warning(f"Invalid phone number input from chat_id {chat_id}: {text}")
                         continue
 
-                # Validate Quantity
                 if field == "Quantity":
                     if not text.isdigit() or int(text) <= 0:
                         send_message(chat_id, "⚠️ Please enter a valid quantity (positive number). / እባክዎ ትክክል ቁጥር ያስገቡ።")
                         logging.warning(f"Invalid quantity input from chat_id {chat_id}: {text}")
                         continue
 
-                # Handle payment option choice
+                valid_inputs = ["Sender / ላኪ", "Receiver / ተቀባይ"]
                 if field == "payment_from_sender_or_receiver":
-                    valid_inputs = ["Sender / ላኪ", "Receiver / ተቀባይ"]
                     if text not in valid_inputs:
                         request_payment_option(chat_id)
                         continue
                     else:
-                        remove_keyboard(chat_id)
-                        state["data"]["payment_from_sender_or_receiver"] = text
-                        # Set skip flags based on payment choice
-                        if text == "Receiver / ተቀባይ":
-                            state["skip_sender_info"] = True
-                            # pre-fill sender info from last order if available
-                            previous = get_last_order_info(chat_id)
-                            if previous:
-                                state["data"]["pickup"] = previous.get("pickup")
-                                state["data"]["sender_phone"] = previous.get("sender_phone")
-                        else:
-                            state["skip_sender_info"] = False
-                            state["skip_receiver_info"] = False  # explicitly reset
+                        remove_keyboard(chat_id)  # ✅ User selected valid input → now remove keyboard
 
-                # Save the current field data
+             
+                
                 state["data"][field] = text
                 logging.info(f"Step {step} completed for chat_id {chat_id}: {field} = {text}")
 
@@ -389,35 +460,21 @@ def main():
                     full_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
                     state["data"]["user_name"] = full_name
 
-                # Advance to next step, skipping if needed
-                next_step = step + 1
-                while next_step < len(Data_Message):
-                    next_field = Data_Message[next_step]["field"]
-                    # Skip sender info if flagged
-                    if state.get("skip_sender_info") and next_field in ["pickup", "sender_phone"]:
-                        next_step += 1
-                        continue
-                    # Skip receiver info if flagged
-                    if state.get("skip_receiver_info") and next_field in ["dropoff", "receiver_phone"]:
-                        next_step += 1
-                        continue
-                    break
-
-                if next_step < len(Data_Message):
-                    next_field_info = Data_Message[next_step]
-                    state["step"] = next_step
+                if step + 1 < len(Data_Message):
+                    next_field_info = Data_Message[step + 1]
+                    state["step"] += 1
                     save_states(states)
 
                     if next_field_info["field"] == "location_marker":
                         request_location(chat_id)
                     elif next_field_info["field"] == "payment_from_sender_or_receiver":
                         request_payment_option(chat_id)
+                      
                     else:
                         send_message(chat_id, next_field_info["label"])
                 else:
-                    # Finalize order
                     state["data"]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    state["data"]["source"] = "bot"
+                    state["data"]["source"] = "bot" 
                     delivery_count = deliveries_collection.count_documents({"chat_id": chat_id})
                     level = get_user_level(delivery_count)
                     state["data"]["user_level"] = f"Level {level}"
@@ -428,23 +485,13 @@ def main():
                     else:
                         state["data"]["is_free_delivery"] = False
 
+
                     order_id = str(uuid4())[:8]
                     state["data"]["order_id"] = order_id
 
                     save_delivery(state["data"])
-
-                    # Save last order info including payment choice for next order
-                    save_last_order_info(chat_id, {
-                        "pickup": state["data"].get("pickup"),
-                        "sender_phone": state["data"].get("sender_phone"),
-                        "dropoff": state["data"].get("dropoff"),
-                        "receiver_phone": state["data"].get("receiver_phone"),
-                        "payment_from_sender_or_receiver": state["data"].get("payment_from_sender_or_receiver")
-                    })
-
                     del states[chat_id]
                     save_states(states)
-
                     reply_markup = {
                         "inline_keyboard": [
                             [{"text": "➕ New Order", "callback_data": "new_order"}],
@@ -452,18 +499,21 @@ def main():
                         ]
                     }
 
-                    send_message(chat_id, "✅ Your order has been accepted! We will notify you via SMS when a driver is assigned. Thank you for using Tolo Delivery.\nWould you like to place another order? / ሌላ ትእዛዝ መጨመር ይፍልጋሉ?", reply_markup=reply_markup)
-
+                    send_message(chat_id, "✅ Your order has been accepted! We Will Notify via sms When Driver Is Assigned Thank you for using Tolo Delivery..\nWould you like to place another order? \n ትዕዛዝዎ ተቀባይነት አግኝቷል! ሾፌሩ ሲመደብ በSMS አማካኝነት እናሳውቆታለን። ቶሎ ዴሊቨሪ በመጠቀምዎ እናመሰግናለን\n ሌላ ትእዛዝ መጨመር ይፍልጋሉ?", reply_markup=reply_markup)
+                
+               
+                    
             else:
                 send_message(chat_id, "Type /start to begin. / እባክዎ /start ይጻፉ ለመጀመር።")
                 logging.info(f"Prompted chat_id={chat_id} to use /start")
-
+                
+            
         if updates.get("result"):
             last_update_id = updates["result"][-1]["update_id"] + 1
             save_offset(last_update_id)
 
-        time.sleep(1)
 
+        time.sleep(1)
         
 if __name__ == '__main__':
     try:
