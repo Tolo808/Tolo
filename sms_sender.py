@@ -398,6 +398,11 @@ def main():
 
 
             if text.lower() == "/start":
+                db.bot_events.insert_one({
+                    "event": "bot_start",
+                    "chat_id": chat_id,
+                    "timestamp": datetime.now()
+                })
                 if chat_id in states:
                     
                     reply_markup = {
@@ -408,7 +413,11 @@ def main():
                     }
                     send_message(chat_id, "⚠️ You already have an active delivery. Do you want to cancel it and start over?", reply_markup=reply_markup)
                 else:
-                   
+                    db.bot_events.insert_one({
+                        "event": "fallback",
+                        "chat_id": chat_id,
+                        "timestamp": datetime.now()
+                    })
                     states[chat_id] = {"step": 0, "data": {}}
                     save_states(states)
                     send_message(chat_id, "👋 Selam! Welcome to Tolo Delivery.\nሰላም! ወደ ቶሎ ዴሊቨሪ እንኳን በደህና መጡ።\nLet's begin / እንጀምር።")
