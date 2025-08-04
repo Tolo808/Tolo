@@ -457,7 +457,31 @@ def main():
                         request_payment_option(chat_id)
                         continue
                     else:
-                        remove_keyboard(chat_id)  # ✅ User selected valid input → now remove keyboard
+                        remove_keyboard(chat_id)
+                        state["data"][field] = text
+                        logging.info(f"Payment selected: {text} by chat_id {chat_id}")
+
+                        # Determine which field to skip
+                        skip_field = "receiver_phone" if text == "Sender / ላኪ" else "sender_phone"
+
+                        # Skip to next step that is NOT the skipped field
+                        step = state["step"]
+                        while step + 1 < len(Data_Message):
+                            step += 1
+                            next_field = Data_Message[step]["field"]
+                            if next_field != skip_field:
+                                break
+
+                        state["step"] = step
+                        save_states(states)
+
+                        next_field_info = Data_Message[step]
+                        if next_field_info["field"] == "location_marker":
+                            request_location(chat_id)
+                        else:
+                            send_message(chat_id, next_field_info["label"])
+                        continue
+                # ✅ User selected valid input → now remove keyboard
 
              
                 
