@@ -19,9 +19,6 @@ logging.basicConfig(
 )
 
 
-
-
-
 load_dotenv()
 client = MongoClient(os.getenv("MONGO_URI"))
 db = client["tolo_delivery"]
@@ -261,10 +258,48 @@ def main():
                     current_field = Data_Message[step]["label"]
                     send_message(chat_id, f"📍 Continuing your current session.\n\n{current_field}")
                 elif data == "new_order":
+                    # Load states again to be safe
+                    states = load_states()
+                    last_state = states.get(chat_id, None)
+
+                    # Start new order with step 0 and empty data dict
                     states[chat_id] = {"step": 0, "data": {}}
+
+                    # If we have last_state and payment info, pre-fill it here
+                    if last_state and "data" in last_state:
+                        last_payment = last_state["data"].get("payment_from_sender_or_receiver")
+                        if last_payment:
+                            # Save payment choice in new order state
+                            states[chat_id]["data"]["payment_from_sender_or_receiver"] = last_payment
+
+                            # Skip the phone question that matches the payment side
+                            skip_field = "receiver_phone" if last_payment == "Sender / ላኪ" else "sender_phone"
+
+                            # Find the first step which is NOT the skipped field
+                            step = 0
+                            while step < len(Data_Message):
+                                if Data_Message[step]["field"] != skip_field:
+                                    break
+                                step += 1
+                            states[chat_id]["step"] = step
+                        else:
+                            states[chat_id]["step"] = 0
+                    else:
+                        states[chat_id]["step"] = 0
+
                     save_states(states)
+
                     send_message(chat_id, "📦 Great! Let's begin your new order.")
-                    send_message(chat_id, Data_Message[0]["label"])
+
+                    # Send first question after skipping
+                    current_field_info = Data_Message[states[chat_id]["step"]]
+                    if current_field_info["field"] == "location_marker":
+                        request_location(chat_id)
+                    elif current_field_info["field"] == "payment_from_sender_or_receiver":
+                        request_payment_option(chat_id)
+                    else:
+                        send_message(chat_id, current_field_info["label"])
+
 
                 elif data == "no_more_orders":
                     send_message(chat_id, "👍 Thank you for using Tolo Delivery!\nYou can type /start anytime to create a new delivery.")
@@ -453,38 +488,28 @@ def main():
                         continue
 
                 valid_inputs = ["Sender / ላኪ", "Receiver / ተቀባይ"]
+                # When at payment_from_sender_or_receiver step, check if already present in state data:
                 if field == "payment_from_sender_or_receiver":
-                    if text not in valid_inputs:
-                        request_payment_option(chat_id)
-                        continue
-                    else:
-                        remove_keyboard(chat_id)
-                        state["data"][field] = text
-                        logging.info(f"Payment selected: {text} by chat_id {chat_id}")
-
-                        # Determine which field to skip
-                        skip_field = "receiver_phone" if text == "Sender / ላኪ" else "sender_phone"
-
-                        # Skip to next step that is NOT the skipped field
+                    # If already set (like from last order), skip to next relevant step
+                    if "payment_from_sender_or_receiver" in state["data"]:
+                        last_payment = state["data"]["payment_from_sender_or_receiver"]
+                        skip_field = "receiver_phone" if last_payment == "Sender / ላኪ" else "sender_phone"
                         step = state["step"]
                         while step + 1 < len(Data_Message):
                             step += 1
                             next_field = Data_Message[step]["field"]
                             if next_field != skip_field:
                                 break
-
                         state["step"] = step
                         save_states(states)
-
+                        
                         next_field_info = Data_Message[step]
                         if next_field_info["field"] == "location_marker":
                             request_location(chat_id)
                         else:
                             send_message(chat_id, next_field_info["label"])
                         continue
-                # ✅ User selected valid input → now remove keyboard
 
-             
                 
                 state["data"][field] = text
                 logging.info(f"Step {step} completed for chat_id {chat_id}: {field} = {text}")
