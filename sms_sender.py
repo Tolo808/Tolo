@@ -544,7 +544,8 @@ def main():
 
                     order_id = str(uuid4())[:8]
                     state["data"]["order_id"] = order_id
-
+                    # Make sure payment_from_sender_or_receiver is saved in final delivery data
+                    state["data"]["payment_from_sender_or_receiver"] = state["data"].get("payment_from_sender_or_receiver")
                     save_delivery(state["data"])
                     del states[chat_id]
                     save_states(states)
