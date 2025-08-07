@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 import logging
 from uuid import uuid4
-import pytz
 
 logging.basicConfig(
     level=logging.INFO,
@@ -544,8 +543,7 @@ def main():
                     else:
                         send_message(chat_id, next_field_info["label"])
                 else:
-                    ethiopia_time = datetime.now(pytz.timezone("Africa/Addis_Ababa"))
-                    state["data"]["timestamp"] = ethiopia_time.strftime("%Y-%m-%d %H:%M:%S")
+                    state["data"]["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     state["data"]["source"] = "bot" 
                     delivery_count = deliveries_collection.count_documents({"chat_id": chat_id})
                     level = get_user_level(delivery_count)
