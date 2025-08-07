@@ -410,8 +410,9 @@ def main():
             
             elif text.lower() == "/mydeliveries":
                 recent_deliveries = list(deliveries_collection.find(
-                    {"chat_id": chat_id}
+                    {"sender_chat_id": chat_id}
                 ).sort("timestamp", -1).limit(5))
+
 
                 if not recent_deliveries:
                     send_message(chat_id, "📭 You haven’t made any deliveries yet.")
