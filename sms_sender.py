@@ -419,10 +419,23 @@ def main():
 
                 message_lines = ["📦 *Your Last 5 Deliveries:*"]
                 for d in recent_deliveries:
-                    date_str = d.get("timestamp", "N/A")
+                    # Format timestamp
+                    timestamp = d.get("timestamp")
+                    if isinstance(timestamp, datetime):
+                        date_str = timestamp.strftime("%d %b %Y, %H:%M")
+                    elif isinstance(timestamp, str):
+                        try:
+                            parsed = datetime.fromisoformat(timestamp)
+                            date_str = parsed.strftime("%d %b %Y, %H:%M")
+                        except Exception:
+                            date_str = timestamp
+                    else:
+                        date_str = "N/A"
+
                     level = d.get("user_level", "N/A")
                     free = "✅ Free" if d.get("is_free_delivery") else "💰 Paid"
                     destination = d.get("receiver_location", "Unknown")
+
                     message_lines.append(f"📍 {destination}\n🗓️ {date_str} | {level} | {free}\n")
 
                 send_message(chat_id, "\n".join(message_lines))
